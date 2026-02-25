@@ -1,10 +1,46 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Anthropic = require('@anthropic-ai/sdk');
 
 class AIService {
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyBAueU7bakiYt2gmbC1mIgDy5zPCFkC1Xw';
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.0-pro' });
+    this.useClaude = process.env.USE_CLAUDE === 'true';
+
+    if (this.useClaude) {
+      const claudeKey = process.env.CLAUDE_API_KEY;
+      if (!claudeKey || claudeKey === 'your_claude_api_key_here') {
+        console.warn('⚠️  USE_CLAUDE is true but CLAUDE_API_KEY is not set — will fall back to rule-based recommendations');
+      }
+      this.claude = new Anthropic({ apiKey: claudeKey });
+      this.providerName = 'Claude';
+      console.log('🤖 AI Provider: Anthropic Claude');
+    } else {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      this.genAI = new GoogleGenerativeAI(geminiKey);
+      this.geminiModel = this.genAI.getGenerativeModel({ model: 'gemini-1.0-pro' });
+      this.providerName = 'Gemini';
+      console.log('🤖 AI Provider: Google Gemini');
+    }
+  }
+
+  /**
+   * Send a prompt to whichever AI provider is active
+   */
+  async _callAI(prompt) {
+    if (this.useClaude) {
+      const message = await this.claude.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      // Claude returns content as an array of blocks
+      return message.content
+        .filter((b) => b.type === 'text')
+        .map((b) => b.text)
+        .join('');
+    } else {
+      const result = await this.geminiModel.generateContent(prompt);
+      return result.response.text();
+    }
   }
 
   /**
@@ -14,21 +50,21 @@ class AIService {
     const prompt = this.buildPrompt(auditResults, url);
 
     try {
-      const result = await this.model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      const text = await this._callAI(prompt);
 
       return {
         success: true,
         recommendations: text,
+        provider: this.providerName,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('Gemini AI Error:', error.message);
+      console.error(`${this.providerName} AI Error:`, error.message);
       return {
         success: false,
         recommendations: this.getFallbackRecommendations(auditResults),
         error: error.message,
+        provider: this.providerName,
         timestamp: new Date().toISOString(),
       };
     }
@@ -140,7 +176,7 @@ Keep recommendations specific, actionable, and prioritized. Include code snippet
       return '## Great Job! 🎉\nYour page passed all major SEO checks. Continue monitoring and optimizing regularly.';
     }
 
-    return `## SEO Issues Found\n\n${recommendations.join('\n\n')}\n\n*Note: AI-powered recommendations are unavailable. Please check your Gemini API key configuration.*`;
+    return `## SEO Issues Found\n\n${recommendations.join('\n\n')}\n\n*Note: AI-powered recommendations are unavailable. Please check your ${this.providerName} API key configuration.*`;
   }
 
   /**
@@ -166,16 +202,18 @@ Provide a brief site-wide SEO summary with:
 Keep it concise and actionable.`;
 
     try {
-      const result = await this.model.generateContent(prompt);
+      const text = await this._callAI(prompt);
       return {
         success: true,
-        summary: result.response.text(),
+        summary: text,
+        provider: this.providerName,
       };
     } catch (error) {
       return {
         success: false,
         summary: 'AI summary unavailable. Review individual page results for details.',
         error: error.message,
+        provider: this.providerName,
       };
     }
   }
