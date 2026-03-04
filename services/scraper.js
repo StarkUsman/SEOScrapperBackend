@@ -8,7 +8,7 @@ class ScraperService {
    */
   static async fetchWithAxios(url) {
     const startTime = Date.now();
-    const timeout = parseInt(process.env.REQUEST_TIMEOUT) || 30000;
+    const timeout = parseInt(process.env.REQUEST_TIMEOUT) || 21600000;
 
     try {
       const response = await axios.get(url, {
@@ -67,7 +67,7 @@ class ScraperService {
       const startTime = Date.now();
       const response = await page.goto(url, {
         waitUntil: 'networkidle2',
-        timeout: parseInt(process.env.REQUEST_TIMEOUT) || 30000,
+        timeout: parseInt(process.env.REQUEST_TIMEOUT) || 21600000,
       });
       const loadTime = Date.now() - startTime;
 
