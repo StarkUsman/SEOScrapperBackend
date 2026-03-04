@@ -7,7 +7,7 @@ class CrawlerService {
     this.visited = new Set();
     this.queue = [];
     this.results = [];
-    this.maxPages = parseInt(process.env.MAX_CRAWL_PAGES) || 20;
+    this.maxPages = parseInt(process.env.MAX_CRAWL_PAGES) || 20000;
   }
 
   /**

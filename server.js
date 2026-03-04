@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const auditRoutes = require('./routes/audit');
+const { auditRouter, optimizeRouter } = require('./routes/audit');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,10 +10,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: '*'
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Routes
-app.use('/api', auditRoutes);
+app.use('/api', auditRouter);
+app.use('/api', optimizeRouter);
 
 // Health check
 app.get('/health', (req, res) => {
